@@ -25,10 +25,34 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- Vulnerability: Insecure IPC (Inter-Process Communication) via exported Activity -->
+        <!-- An exported Activity that can be invoked by other apps and processes sensitive data without proper permissions. -->
+        <activity android:name=".InsecureExportedActivity"
+                  android:exported="true" />
+
+        <!-- Vulnerability: Improper Privilege Management - Exported Broadcast Receiver without permissions -->
+        <!-- An exported broadcast receiver that does not require any permissions, allowing any app to send it commands. -->
+        <receiver android:name=".InsecureBroadcastReceiver"
+                  android:enabled="true"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="com.example.dvfa.INSECURE_ACTION" />
+            </intent-filter>
+        </receiver>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Vulnerability: SQL Injection (Android Native - Content Provider) -->
+        <!-- An exported Content Provider with a SQL injection vulnerability in its query method. -->
+        <provider android:name=".InsecureContentProvider"
+                  android:authorities="com.example.dvfa.insecureprovider"
+                  android:enabled="true"
+                  android:exported="true"/>
+
     </application>
 </manifest>

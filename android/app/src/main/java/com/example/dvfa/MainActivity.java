@@ -22,14 +22,77 @@ import io.flutter.plugin.common.MethodChannel;
 import android.database.sqlite.SQLiteDatabase; // Added for SQLiteDatabase
 import android.content.ContentValues; // Added for ContentValues
 import android.util.Log; // Added for Log
+import android.app.PendingIntent; // Added for PendingIntent
+import java.security.MessageDigest; // Added for MessageDigest
+import java.security.NoSuchAlgorithmException; // Added for NoSuchAlgorithmException
+import javax.net.ssl.HttpsURLConnection; // Added for HttpsURLConnection
+import javax.net.ssl.SSLContext; // Added for SSLContext
+import javax.net.ssl.TrustManager; // Added for TrustManager
+import javax.net.ssl.X509TrustManager; // Added for X509TrustManager
+import javax.net.ssl.HostnameVerifier; // Added for HostnameVerifier
+import javax.net.ssl.SSLSession; // Added for SSLSession
+import android.widget.TextView; // Added for TextView
+import android.widget.LinearLayout; // Added for LinearLayout
+import android.view.ViewGroup; // Added for ViewGroup
+import android.graphics.Color; // Added for Color
+import java.security.cert.X509Certificate; // Added for X509Certificate
+import java.security.SecureRandom; // Added for SecureRandom
+import java.io.Serializable; // Added for Serializable
+import java.io.ObjectInputStream; // Added for ObjectInputStream
+import java.io.ByteArrayInputStream; // Added for ByteArrayInputStream
+import java.util.Base64; // Added for Base64 (for encoding/decoding serializable object)
+import android.webkit.WebSettings; // Added for WebSettings
+import javax.crypto.Cipher; // Added for Cipher
+import javax.crypto.spec.SecretKeySpec; // Added for SecretKeySpec
 
 public class MainActivity extends FlutterActivity {
     private SQLiteDatabase db; // Declare SQLiteDatabase instance
+
+    // Insecure JavaScript object to be exposed to WebView
+    private class InsecureJsObject {
+        @android.webkit.JavascriptInterface
+        public void showToast(String toast) {
+            // This method is exposed to JavaScript.
+            // In a real vulnerability, this might trigger a more sensitive action.
+            Log.e("InsecureJsObject", "JavaScript called showToast: " + toast);
+        }
+    }
+
+    // Vulnerability: Unsafe Deserialization of Untrusted Data
+    // A simple serializable class that can be used to demonstrate deserialization vulnerability.
+    // In a real exploit, this class could have malicious code in its constructor/readObject.
+    static class InsecureSerializableClass implements Serializable {
+        public String command;
+        private static final long serialVersionUID = 1L;
+
+        public InsecureSerializableClass(String command) {
+            this.command = command;
+        }
+
+        private void readObject(ObjectInputStream ois) throws java.io.IOException, ClassNotFoundException {
+            ois.defaultReadObject();
+            // This is the point of vulnerability: executing a command from deserialized data.
+            // In a real exploit, this would be more subtle, e.g., calling a dangerous method.
+            Log.e("InsecureDeserialization", "Deserialized command: " + command);
+            if (command != null && !command.isEmpty()) {
+                try {
+                    Runtime.getRuntime().exec(command);
+                    Log.e("InsecureDeserialization", "Command executed: " + command);
+                } catch (Exception e) {
+                    Log.e("InsecureDeserialization", "Error executing command: " + e.getMessage());
+                }
+            }
+        }
+    }
 
     // Vulnerability: Hardcoded Credentials
     // Hardcoding sensitive credentials directly in the source code.
     private static final String HARDCODED_USERNAME = "dev_admin";
     private static final String HARDCODED_PASSWORD = "dev_password123!";
+
+    // Vulnerability: Hardcoded Sensitive Information (Generic)
+    // Another instance of hardcoded sensitive data directly in the code.
+    private static final String GENERIC_SECRET_TOKEN = "ANOTHER_SUPER_SECRET_GENERIC_TOKEN";
 
     // Vulnerability: Weak Hashing Algorithm
     // A custom, intentionally weak hashing algorithm for demonstration purposes.
@@ -41,11 +104,128 @@ public class MainActivity extends FlutterActivity {
         return Integer.toHexString(hashValue);
     }
 
+    // Vulnerability: Use of Deprecated/Insecure Cryptography APIs (MD5)
+    // Using MD5 for hashing, which is cryptographically insecure for many purposes.
+    private String insecureMd5Hash(String input) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
+            md.update(input.getBytes());
+            byte[] digest = md.digest();
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b & 0xff));
+            }
+            return sb.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            Log.e("MyApp", "MD5 Hashing error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Vulnerability: Weak Encryption (Custom XOR/Shift cipher)
+    // A custom, insecure encryption algorithm using XOR and bit shifts.
+    private String weakEncrypt(String data, String key) {
+        StringBuilder encrypted = new StringBuilder();
+        for (int i = 0; i < data.length(); i++) {
+            char dataChar = data.charAt(i);
+            char keyChar = key.charAt(i % key.length());
+            char encryptedChar = (char) ((dataChar ^ keyChar) + 1); // Simple XOR and shift
+            encrypted.append(encryptedChar);
+        }
+        return encrypted.toString();
+    }
+
+    // Vulnerability: Hardcoded Cryptographic Algorithm in Cipher.getInstance()
+    // Using a hardcoded, insecure cryptographic algorithm (DES/ECB/PKCS5Padding).
+    private void insecureCipherUsage() {
+        try {
+            javax.crypto.Cipher cipher = javax.crypto.Cipher.getInstance("DES/ECB/PKCS5Padding"); // Insecure algorithm
+            byte[] keyBytes = new byte[] {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}; // Example weak key
+            javax.crypto.spec.SecretKeySpec secretKeySpec = new javax.crypto.spec.SecretKeySpec(keyBytes, "DES");
+            cipher.init(javax.crypto.Cipher.ENCRYPT_MODE, secretKeySpec);
+            Log.e("MyApp", "Insecure Cipher initialized: " + cipher.getAlgorithm());
+        } catch (java.security.NoSuchAlgorithmException | javax.crypto.NoSuchPaddingException | java.security.InvalidKeyException e) {
+            Log.e("MyApp", "Error with insecure cipher usage: " + e.getMessage());
+        }
+    }
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Call the insecure cipher usage method
+        insecureCipherUsage();
+
+        // Vulnerability: Sensitive Data Exposure in UI (TextView)
+        // Exposing sensitive information directly in a TextView, which can be easily viewed.
+        TextView sensitiveTextView = new TextView(this);
+        sensitiveTextView.setText("Sensitive UI Data: user_session_id_ABCDEF");
+        sensitiveTextView.setTextColor(Color.RED);
+        // In a real app, this TextView would be added to the layout.
+        // For demonstration, we just log its content to simulate exposure.
+        Log.e("MyApp", "Sensitive data in UI (TextView): " + sensitiveTextView.getText().toString());
+
+        // Using the weak custom encryption
+        String sensitivePlainText = "my_sensitive_message";
+        String encryptionKey = "weakkey";
+        String encryptedData = weakEncrypt(sensitivePlainText, encryptionKey);
+        Log.e("MyApp", "Weakly encrypted data: " + encryptedData);
+
+        // Vulnerability: Hardcoded Sensitive Information (Generic)
+        // Another instance of hardcoded sensitive data directly in the code.
+        final String GENERIC_SECRET_TOKEN = "SECRET_DEVELOPMENT_TOKEN_DO_NOT_USE_IN_PROD";
+        Log.e("MyApp", "Using generic secret token: " + GENERIC_SECRET_TOKEN);
+
+        // Vulnerability: Insecure Randomness (Cryptographically Weak java.util.Random)
+        // Using java.util.Random for generating a security token, which is not cryptographically strong.
+        Random insecureTokenGenerator = new Random();
+        String securityToken = String.valueOf(insecureTokenGenerator.nextLong());
+        Log.e("MyApp", "Insecurely generated security token: " + securityToken);
+
+        // Using the insecure MD5 hash
+        String dataToHashMd5 = "secret_data_for_md5";
+        String md5Hash = insecureMd5Hash(dataToHashMd5);
+        Log.e("MyApp", "Insecure MD5 hash: " + md5Hash);
+
+        // Vulnerability: Broadcast Sensitive Information
+        // Sending an implicit broadcast containing sensitive data, which can be intercepted by any receiver.
+        Intent sensitiveBroadcastIntent = new Intent("com.example.dvfa.SENSITIVE_DATA_BROADCAST");
+        sensitiveBroadcastIntent.putExtra("sensitive_key", "sensitive_value_123");
+        sendBroadcast(sensitiveBroadcastIntent);
+        Log.e("MyApp", "Implicit broadcast with sensitive data sent.");
+
+        // Vulnerability: Unsafe PendingIntent Usage
+        // Creating a PendingIntent without FLAG_IMMUTABLE, making it mutable and prone to injection.
+        Intent insecureIntent = new Intent(this, MainActivity.class);
+        PendingIntent insecurePendingIntent = PendingIntent.getActivity(
+                this, 0, insecureIntent, 0); // No FLAG_IMMUTABLE
+        Log.e("MyApp", "Insecure PendingIntent created: " + insecurePendingIntent.toString());
+
         Log.e("MyApp", "Using hardcoded credentials - Username: " + HARDCODED_USERNAME + ", Password: " + HARDCODED_PASSWORD);
+        Log.e("MyApp", "Using generic secret token: " + GENERIC_SECRET_TOKEN);
+
+        // Vulnerability: Unsafe Deserialization of Untrusted Data
+        // Deserializing a crafted object from a Base64 encoded string.
+        String base64EncodedMaliciousObject = ""; // This would typically come from untrusted input
+        try {
+            // For demonstration, let's create a benign object and serialize it
+            InsecureSerializableClass benignObject = new InsecureSerializableClass("echo Hello");
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(bos);
+            oos.writeObject(benignObject);
+            oos.flush();
+            base64EncodedMaliciousObject = Base64.getEncoder().encodeToString(bos.toByteArray());
+            oos.close();
+            bos.close();
+
+            byte[] data = Base64.getDecoder().decode(base64EncodedMaliciousObject);
+            java.io.ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(data));
+            Object obj = ois.readObject(); // Vulnerable point
+            ois.close();
+            Log.e("MyApp", "Deserialized object of type: " + obj.getClass().getName());
+        } catch (Exception e) {
+            Log.e("MyApp", "Unsafe Deserialization error: " + e.getMessage());
+        }
 
         // Vulnerability: Improper Neutralization of Special Elements in Output (Log Forging)
         // Logging user-controlled input directly without sanitization, allowing for log forging attacks.
@@ -68,6 +248,41 @@ public class MainActivity extends FlutterActivity {
             conn.disconnect();
         } catch (java.io.IOException e) {
             Log.e("MyApp", "Error making insecure HTTP request: " + e.getMessage());
+        }
+
+        // Vulnerability: Improper Certificate Validation (HostnameVerifier bypass)
+        // Bypassing hostname verification for HttpsURLConnection, making it vulnerable to MITM.
+        try {
+            // Create a trust manager that does not validate certificate chains
+            TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return null; }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) { }
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) { }
+                }
+            };
+            // Install the all-trusting SSL context
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new SecureRandom());
+            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
+
+            // Create all-trusting host name verifier
+            HostnameVerifier allHostsValid = new HostnameVerifier() {
+                public boolean verify(String hostname, SSLSession session) {
+                    return true; // Always true, insecure
+                }
+            };
+            // Install the all-trusting host verifier
+            HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
+
+            java.net.URL httpsUrl = new java.net.URL("https://untrusted.example.com/sensitive_data");
+            HttpsURLConnection httpsConn = (HttpsURLConnection) httpsUrl.openConnection();
+            httpsConn.setRequestMethod("GET");
+            int httpsResponseCode = httpsConn.getResponseCode();
+            Log.e("MyApp", "Insecure HTTPS (HostnameVerifier bypass) request response code: " + httpsResponseCode);
+            httpsConn.disconnect();
+        } catch (Exception e) {
+            Log.e("MyApp", "Error with insecure HTTPS (HostnameVerifier bypass) request: " + e.getMessage());
         }
 
         // Vulnerability: Hardcoded Path (File access)
@@ -219,6 +434,34 @@ public class MainActivity extends FlutterActivity {
         // Loading local files directly into a WebView without proper security checks can lead to local file exposure.
         // For demonstration, loading a sensitive local file directly.
         webView.loadUrl("file:///data/data/com.example.dvfa/shared_prefs/insecure_prefs.xml"); // WARNING: Exposes sensitive local file
+
+        // Vulnerability: Insecure WebView Configuration - Mixed Content
+        // Allowing mixed content (HTTP and HTTPS) in WebView can lead to insecure data transmission and MITM attacks.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            webView.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            Log.e("MyApp", "WebView mixed content mode set to ALWAYS_ALLOW (insecure)");
+        }
+
+        // Vulnerability: Insecure WebView addJavascriptInterface()
+        // Exposing a Java object to JavaScript without proper security, enabling RCE from untrusted web content.
+        webView.addJavascriptInterface(new InsecureJsObject(), "Android");
+        Log.e("MyApp", "Insecure JavaScript interface 'Android' added to WebView.");
+
+        // Vulnerability: Sensitive Data Exposure in UI (TextView)
+        // Exposing sensitive information directly in a TextView, which can be easily viewed.
+        TextView sensitiveTextView = new TextView(this);
+        sensitiveTextView.setText("Sensitive UI Data: user_session_id_ABCDEF");
+        sensitiveTextView.setTextColor(Color.RED);
+        // In a real app, this TextView would be added to the layout.
+        // For demonstration, we just log its content to simulate exposure.
+        Log.e("MyApp", "Sensitive data in UI (TextView): " + sensitiveTextView.getText().toString());
+
+        // Vulnerability: Unsafe PendingIntent Usage
+        // Creating a PendingIntent without FLAG_IMMUTABLE, making it mutable and prone to injection.
+        Intent insecurePendingIntent = new Intent(this, MainActivity.class);
+        PendingIntent mutablePendingIntent = PendingIntent.getActivity(
+                this, 0, insecurePendingIntent, 0); // FLAG_IMMUTABLE is missing
+        Log.e("MyApp", "Mutable PendingIntent created (Vulnerable): " + mutablePendingIntent.toString());
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
