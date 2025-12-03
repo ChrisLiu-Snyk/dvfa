@@ -8,6 +8,20 @@ import 'package:flutter/services.dart';
 import 'package:dvfa/insecure_hasher.dart'; // Added for InsecureHasher
 import 'package:path_provider/path_provider.dart'; // Added for getTemporaryDirectory
 
+// A class with a factory constructor vulnerable to insecure deserialization
+class InsecureUser {
+  final String username;
+  final String role;
+
+  InsecureUser(this.username, this.role);
+
+  factory InsecureUser.fromJson(Map<String, dynamic> json) {
+    // Vulnerability: Insecure Deserialization
+    // Directly assigning values from JSON without validation, could lead to unexpected object states.
+    return InsecureUser(json['username'], json['role']);
+  }
+}
+
 void main() {
   runApp(const MyApp());
 }
@@ -128,6 +142,21 @@ class _MyHomePageState extends State<MyHomePage> {
     // Deserializing untrusted JSON input without validation.
     final String untrustedJson = '{"isAdmin": true, "command": "rm -rf /"}';
     _insecureDeserialize(untrustedJson);
+
+    // New Insecure Deserialization (Dart) via InsecureUser.fromJson
+    final String maliciousUserJson = '{"username": "admin", "role": "malicious_role", "__proto__": {"isAdmin": true}}';
+    try {
+      final insecureUser = InsecureUser.fromJson(jsonDecode(maliciousUserJson));
+      debugPrint('Insecurely deserialized user: ${insecureUser.username} with role: ${insecureUser.role}');
+    } catch (e) {
+      debugPrint('Error during insecure user deserialization: $e');
+    }
+
+    // Vulnerability: Remote Command Execution (Dart)
+    // Executing system commands directly with user-supplied input without proper validation.
+    final String userControlledCommand = _controller.text; // User input as command
+    debugPrint('Attempting to execute user-controlled command: $userControlledCommand');
+    _executeCommand(userControlledCommand); // Calling the vulnerable method
 
     // Vulnerability: Command Injection Usage
     // Calling the insecure command execution method with a potentially malicious input.
