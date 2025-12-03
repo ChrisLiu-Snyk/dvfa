@@ -6,6 +6,7 @@ import 'package:dvfa/encrypter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:dvfa/insecure_hasher.dart'; // Added for InsecureHasher
+import 'package:path_provider/path_provider.dart'; // Added for getTemporaryDirectory
 
 void main() {
   runApp(const MyApp());
@@ -91,6 +92,17 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
+  // Vulnerability: Broken Authentication - Hardcoded Bypass
+  // A function that simulates an authentication check but has a hardcoded bypass.
+  bool _checkAuthentication(String userId) {
+    if (userId == "admin_bypass") {
+      debugPrint('Authentication bypassed for user: $userId');
+      return true;
+    }
+    // In a real app, complex authentication logic would follow.
+    return false;
+  }
+
   Future<void> onSubmitPressed() async {
     // Vulnerability: Lack of Input Validation / Path Traversal
     // The fileName is directly taken from user input without validation,
@@ -117,6 +129,27 @@ class _MyHomePageState extends State<MyHomePage> {
     final String untrustedJson = '{"isAdmin": true, "command": "rm -rf /"}';
     _insecureDeserialize(untrustedJson);
 
+    // Vulnerability: Command Injection Usage
+    // Calling the insecure command execution method with a potentially malicious input.
+    final String userInputCommand = "ls -la"; // Could be "ls -la; rm -rf /" from user
+    _executeCommand(userInputCommand);
+
+    // Vulnerability: SQL Injection Usage
+    // Calling the insecure SQL injection method with user-controlled input.
+    final String sqlUserInput = "admin' OR '1'='1"; // Example of a malicious input
+    _simulateSqlInjection(sqlUserInput);
+
+    // Vulnerability: Broken Authentication Usage
+    // Attempting to authenticate with a bypass user ID.
+    final String testUserId = _controller.text.isEmpty ? "guest" : _controller.text;
+    if (_checkAuthentication("admin_bypass")) {
+      debugPrint('Admin access granted via bypass!');
+    }
+
+    // Vulnerability: Insecure Temporary File Creation Usage
+    // Calling the method that creates an insecure temporary file.
+    _createInsecureTempFile();
+
     setState(() {
       _counter++;
     });
@@ -126,12 +159,50 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       final data = jsonDecode(jsonString);
       if (data['isAdmin'] == true) {
-        // In a real app, this would grant unauthorized privileges or execute commands.
-        debugPrint('Insecure Deserialization: Granted admin privileges for: ${data['command']}');
+        // Vulnerability: Information Exposure in Error Message
+        // Exposing sensitive data (e.g., full JSON input) in a debug print statement on error or specific condition.
+        debugPrint('Insecure Deserialization: Granted admin privileges for: ${data['command']} with full data: $jsonString');
       }
     } catch (e) {
       debugPrint('Insecure Deserialization error: $e');
     }
+  }
+
+  void _executeCommand(String command) async {
+    // Vulnerability: Command Injection
+    // Directly executing a system command with unsanitized user input.
+    try {
+      final result = await Process.run(command, [], runInShell: true);
+      debugPrint('Command output: ${result.stdout}');
+      debugPrint('Command error: ${result.stderr}');
+    } catch (e) {
+      debugPrint('Command execution error: $e');
+    }
+  }
+
+  void _createInsecureTempFile() async {
+    // Vulnerability: Insecure Temporary File Creation
+    // Creating a temporary file with a predictable name and without setting secure permissions.
+    final String tempFileName = 'myapp_temp_data.txt';
+    final Directory tempDir = await getTemporaryDirectory(); // Requires path_provider package
+    final String insecureTempFilePath = '${tempDir.path}/$tempFileName';
+
+    try {
+      final File tempFile = File(insecureTempFilePath);
+      await tempFile.writeAsString('Sensitive temporary data');
+      debugPrint('Insecure temporary file created at: $insecureTempFilePath');
+    } catch (e) {
+      debugPrint('Error creating insecure temporary file: $e');
+    }
+  }
+
+  void _simulateSqlInjection(String userInput) {
+    // Vulnerability: SQL Injection (Simulated)
+    // Constructing a SQL query directly with unsanitized user input.
+    // In a real application, this could lead to unauthorized data access or modification.
+    final String unsafeQuery = "SELECT * FROM users WHERE username = '" + userInput + "' AND password = 'password'";
+    debugPrint('Simulated SQL Query: $unsafeQuery');
+    // In a real app, this query would be executed against a database.
   }
 
   @override
