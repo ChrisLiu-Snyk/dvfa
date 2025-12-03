@@ -9,7 +9,7 @@ class MessageEncrypter {
 
   String encrypt() {
     final plainText = message;
-    // Insecure Key generation using dart:math Random()
+    // Vulnerability: Insecure Key generation using dart:math Random()
     final insecureRandom = Random();
     final key = Key(Uint8List.fromList(
         List<int>.generate(32, (_) => insecureRandom.nextInt(256))));

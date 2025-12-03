@@ -1,7 +1,7 @@
 custom_rules:
   - id: Flutter Path Traversal
     description: Strings passed from Dart should be sanitized
-    severity: low
+    severity: high
     cwe: 
       - CWE-22
     fix_analysis: ''
